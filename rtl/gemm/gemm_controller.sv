@@ -206,7 +206,7 @@ module gemm_controller #(
         // Check if we are done
         if (last_counter_last_value) begin
           next_state = ControllerFinish;
-        end else if (input_valid_i
+        end if (input_valid_i
                      && K_count_o == '0 
                      && (M_count_o != '0 || N_count_o != '0)) begin
           // Check when result_valid_o should be asserted

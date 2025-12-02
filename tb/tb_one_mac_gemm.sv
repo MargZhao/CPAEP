@@ -19,7 +19,7 @@ module tb_one_mac_gemm;
   //---------------------------
 
   // General Parameters
-  parameter int unsigned NumInputs    = 4;
+  parameter int unsigned NumInputs    = 64;
   parameter int unsigned InDataWidth   = 8;
   parameter int unsigned OutDataWidth  = 32;
   parameter int unsigned DataDepth     = 4096;
@@ -28,11 +28,11 @@ module tb_one_mac_gemm;
 
   // Test Parameters
   parameter int unsigned MaxNum   = 32;
-  parameter int unsigned NumTests = 5;
+  parameter int unsigned NumTests = 1;
 
-  parameter int unsigned SingleM = 4;
-  parameter int unsigned SingleK = 64;
-  parameter int unsigned SingleN = 16;
+  parameter int unsigned SingleM = 32;
+  parameter int unsigned SingleK = 32;
+  parameter int unsigned SingleN = 32;
 
   //---------------------------
   // Wires
