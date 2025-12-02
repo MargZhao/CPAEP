@@ -30,7 +30,8 @@
 //---------------------------
 
 module gemm_controller #(
-  parameter int unsigned AddrWidth = 16
+  parameter int unsigned AddrWidth = 16,
+  parameter int unsigned NumInputs = 1
 )(
   input  logic clk_i,
   input  logic rst_ni,
@@ -48,6 +49,8 @@ module gemm_controller #(
   output logic [AddrWidth-1:0] K_count_o,
   output logic [AddrWidth-1:0] N_count_o
 );
+  logic [AddrWidth-1:0] K_packed_depth;
+  assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs;
 
   //-----------------------
   // Wires and logic
@@ -88,8 +91,10 @@ module gemm_controller #(
   //
   // for m = 0 to M-1
   //   for n = 0 to N-1
-  //     for k = 0 to K-1
-  //       C[m][n] += A[m][k] * B[k][n]
+  //     for k = 0 to K-1/S
+  //          parfor i = 0 to S-1
+  //            C[m][n] += A[m][k*4 + i] * B[k*4 + i][n]
+  //       
   //
   // This is the dataflow that the counters help to manage.
   // This will change when we start to have more spatial parallelism.
@@ -114,7 +119,7 @@ module gemm_controller #(
     .rst_ni       ( rst_ni         ),
     .tick_i       ( move_K_counter ),
     .clear_i      ( clear_counters ),
-    .ceiling_i    ( K_size_i       ),
+    .ceiling_i    ( K_packed_depth ),
     .count_o      ( K_count_o      ),
     .last_value_o ( move_N_counter )
   );

@@ -33,6 +33,7 @@
 //---------------------------
 
 module gemm_accelerator_top #(
+  parameter int unsigned NumInputs = 1,
   parameter int unsigned InDataWidth = 8,
   parameter int unsigned OutDataWidth = 32,
   parameter int unsigned AddrWidth = 16,
@@ -47,8 +48,8 @@ module gemm_accelerator_top #(
   output logic        [    AddrWidth-1:0] sram_a_addr_o,
   output logic        [    AddrWidth-1:0] sram_b_addr_o,
   output logic        [    AddrWidth-1:0] sram_c_addr_o,
-  input  logic signed [  InDataWidth-1:0] sram_a_rdata_i,
-  input  logic signed [  InDataWidth-1:0] sram_b_rdata_i,
+  input  logic signed [NumInputs-1:0][  InDataWidth-1:0] sram_a_rdata_i,
+  input  logic signed [NumInputs-1:0][  InDataWidth-1:0] sram_b_rdata_i,
   output logic signed [ OutDataWidth-1:0] sram_c_wdata_o,
   output logic                            sram_c_we_o,
   output logic                            done_o
@@ -80,7 +81,8 @@ module gemm_accelerator_top #(
 
   // Main GeMM controller
   gemm_controller #(
-    .AddrWidth      ( SizeAddrWidth )
+    .AddrWidth      ( SizeAddrWidth ),
+    .NumInputs      ( NumInputs     )
   ) i_gemm_controller (
     .clk_i          ( clk_i       ),
     .rst_ni         ( rst_ni      ),
@@ -113,8 +115,10 @@ module gemm_accelerator_top #(
   //---------------------------
 
   // Input addresses for matrices A and B
-  assign sram_a_addr_o = (M_count * K_size_i + K_count);
-  assign sram_b_addr_o = (K_count * N_size_i + N_count);
+  logic [AddrWidth-1:0] K_packed_depth;
+  assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs;
+  assign sram_a_addr_o = (M_count * K_packed_depth + K_count);
+  assign sram_b_addr_o = (N_count * K_packed_depth + K_count);
 
   // Output address for matrix C
   always_ff @(posedge clk_i or negedge rst_ni) begin
@@ -167,7 +171,7 @@ module gemm_accelerator_top #(
   // The MAC PE instantiation and data path logics
   general_mac_pe #(
     .InDataWidth  ( InDataWidth            ),
-    .NumInputs    ( 1                      ),
+    .NumInputs    ( NumInputs              ),
     .OutDataWidth ( OutDataWidth           )
   ) i_mac_pe (
     .clk_i        ( clk_i                  ),
