@@ -1,4 +1,4 @@
-module tb_one_mac_gemm;
+module tb_mac_2D_gemm;
   //---------------------------
   // Design Time Parameters
   //---------------------------
@@ -20,15 +20,17 @@ module tb_one_mac_gemm;
 
   // General Parameters
   parameter int unsigned NumInputs    = 64;
+  parameter int unsigned ParforN   = 4;
+  parameter int unsigned ParforK   = 16;
   parameter int unsigned InDataWidth   = 8;
   parameter int unsigned OutDataWidth  = 32;
-  parameter int unsigned DataDepth     = 4096;
+  parameter int unsigned DataDepth     = 2048;
   parameter int unsigned AddrWidth     = (DataDepth <= 1) ? 1 : $clog2(DataDepth);
   parameter int unsigned SizeAddrWidth = 8;
 
   // Test Parameters
   parameter int unsigned MaxNum   = 32;
-  parameter int unsigned NumTests = 1;
+  parameter int unsigned NumTests = 10;
 
   parameter int unsigned SingleM = 32;
   parameter int unsigned SingleK = 32;
@@ -52,20 +54,22 @@ module tb_one_mac_gemm;
   // Memory
   //---------------------------
   // Golden data dump
-  logic signed [OutDataWidth-1:0] G_memory [DataDepth];
+  logic signed [ParforN-1:0][OutDataWidth-1:0] G_memory [DataDepth];
 
   // Memory control
   logic [AddrWidth-1:0] sram_a_addr;
   logic [AddrWidth-1:0] sram_b_addr;
   logic [AddrWidth-1:0] sram_c_addr;
-  logic [InDataWidth*NumInputs-1:0] temp_pack_data;
+  logic [InDataWidth*ParforK-1:0] temp_pack_A;
+  logic [InDataWidth*ParforK*ParforN-1:0] temp_pack_B;
   logic [InDataWidth-1:0] val;
   int K_packed_depth;
+  int N_packed_depth;
 
   // Memory access
-  logic signed [NumInputs-1:0][ InDataWidth-1:0] sram_a_rdata;
-  logic signed [NumInputs-1:0][ InDataWidth-1:0] sram_b_rdata;
-  logic signed [OutDataWidth-1:0] sram_c_wdata;
+  logic signed [ParforK-1:0][InDataWidth-1:0] sram_a_rdata;          // [15:0][7:0]
+  logic signed [ParforN-1:0][ParforK-1:0][InDataWidth-1:0] sram_b_rdata;
+  logic signed [ParforN-1:0][OutDataWidth-1:0] sram_c_wdata;
   logic                           sram_c_we;
 
   //---------------------------
@@ -92,7 +96,7 @@ module tb_one_mac_gemm;
   // Input memory A
   // Note: this is read only
   single_port_memory #(
-    .DataWidth     ( InDataWidth*NumInputs ),
+    .DataWidth     ( InDataWidth*ParforK ),
     .DataDepth     ( DataDepth    ),
     .AddrWidth     ( AddrWidth    )
   ) i_sram_a (
@@ -107,7 +111,7 @@ module tb_one_mac_gemm;
   // Input memory B
   // Note: this is read only
   single_port_memory #(
-    .DataWidth     ( InDataWidth*NumInputs  ),
+    .DataWidth     ( InDataWidth*ParforK*ParforN ),
     .DataDepth     ( DataDepth    ),
     .AddrWidth     ( AddrWidth    )
   ) i_sram_b (
@@ -122,7 +126,7 @@ module tb_one_mac_gemm;
   // Output memory C
   // Note: this is write only
   single_port_memory #(
-    .DataWidth     ( OutDataWidth ),
+    .DataWidth     ( OutDataWidth*ParforN ),
     .DataDepth     ( DataDepth    ),
     .AddrWidth     ( AddrWidth    )
   ) i_sram_c (
@@ -137,8 +141,9 @@ module tb_one_mac_gemm;
   //---------------------------
   // DUT instantiation
   //---------------------------
-  gemm_accelerator_top #(
-    .NumInputs     ( NumInputs     ),
+  gemm_accelerator_2D_top #(
+    .ParforK       ( ParforK       ),
+    .ParforN       ( ParforN       ),
     .InDataWidth   ( InDataWidth   ),
     .OutDataWidth  ( OutDataWidth  ),
     .AddrWidth     ( AddrWidth     ),
@@ -257,50 +262,50 @@ module tb_one_mac_gemm;
       //---------------------------
 
       // Initialize memories with random data
-      K_packed_depth = (K_i + NumInputs - 1) / NumInputs;
+      K_packed_depth = (K_i + ParforK - 1) / ParforK;
       $display("K_packed_depth: %0d\n", K_packed_depth);
+      N_packed_depth = (N_i + ParforN - 1) / ParforN;
+      $display("N_packed_depth: %0d\n", N_packed_depth);
       // ---------------------------------------------------------
       // Matrix A (row major + Zero Padding)
       // ---------------------------------------------------------
 
       for (integer m = 0; m < M_i; m++) begin
-        for (integer k = 0; k < K_i; k = k+NumInputs) begin
-          temp_pack_data = '0;
-          for (integer i = 0; i < NumInputs; i++) begin
-            if ((k + i) < K_i) begin
+        for (integer k = 0; k < K_i; k = k+ParforK) begin
+          temp_pack_A = '0;
+          for (integer ki = 0; ki < ParforK; ki++) begin
+            if ((k + ki) < K_i) begin
               val = $urandom() % (2 ** 8);
-              // [7:0] 放 k+0, [15:8] 放 k+1 ...
-             temp_pack_data[i*InDataWidth +: InDataWidth] = val;
+              // 位拼接
+             // [7:0] 放 k+0, [15:8] 放 k+1 ...
+             temp_pack_A[ki*InDataWidth +: InDataWidth] = val;
             end
-             
           end
-          i_sram_a.memory[m*K_packed_depth+(k/NumInputs)] = temp_pack_data;
+          i_sram_a.memory[m*K_packed_depth+(k/ParforK)] = temp_pack_A;
         end
       end
       // ---------------------------------------------------------
       // Matrix B (colomn major + Zero Padding)
       // ---------------------------------------------------------
-      for (integer n = 0; n < N_i; n++) begin
-        for (integer k = 0; k < K_i; k = k + NumInputs) begin          
-          temp_pack_data = '0; 
-          for (integer i = 0; i < NumInputs; i++) begin
-             if ((k + i) < K_i) begin
-                  val = $urandom() % (2 ** InDataWidth);
-                 
-                 temp_pack_data[i*InDataWidth +: InDataWidth] = val;
-             end
+      for (integer n = 0; n < N_i; n= n + ParforN) begin
+        for (integer k = 0; k < K_i; k = k + ParforK) begin          
+          temp_pack_B = '0; 
+          for (integer ni = 0; ni < ParforN; ni++) begin
+            for (integer ki = 0; ki < ParforK; ki++) begin
+                if (((n + ni) < N_i) && ((k + ki) < K_i)) begin
+                    val = $urandom() % (2 ** InDataWidth);
+                    
+                    temp_pack_B[(ki+ni*ParforK)*InDataWidth +: InDataWidth] = val;
+                end
+            end
           end
-          i_sram_b.memory[n * K_packed_depth + (k / NumInputs)] = temp_pack_data;
+          i_sram_b.memory[(n/ParforN) * K_packed_depth + (k / ParforK)] = temp_pack_B;
         end
       end
-      // for (integer k = 0; k < K_i; k++) begin
-      //   for (integer n = 0; n < N_i; n++) begin
-      //     i_sram_b.memory[k*N_i+n] = $urandom() % (2 ** InDataWidth);
-      //   end
-      // end
+     
 
       // Generate golden result
-      gemm_golden(M_i, K_i, N_i, i_sram_a.memory, i_sram_b.memory, G_memory);
+      gemm_2D_golden(M_i, K_i, N_i, i_sram_a.memory, i_sram_b.memory, G_memory);
 
       // Just delay 1 cycle
       clk_delay(1);
@@ -308,7 +313,7 @@ module tb_one_mac_gemm;
       // Execute the GeMM
       start_and_wait_gemm();
 
-      test_depth = M_i * N_i;
+      test_depth = M_i * N_packed_depth;
 
       // Verify the result
       verify_result_c(G_memory, i_sram_c.memory, test_depth,
