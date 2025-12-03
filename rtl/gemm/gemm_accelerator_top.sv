@@ -34,6 +34,8 @@
 
 module gemm_accelerator_top #(
   parameter int unsigned NumInputs = 1,
+  parameter int unsigned RowsPerTile = 4,
+  parameter int unsigned ColsPerTile = 4,
   parameter int unsigned InDataWidth = 8,
   parameter int unsigned OutDataWidth = 32,
   parameter int unsigned AddrWidth = 16,
@@ -48,9 +50,9 @@ module gemm_accelerator_top #(
   output logic        [    AddrWidth-1:0] sram_a_addr_o,
   output logic        [    AddrWidth-1:0] sram_b_addr_o,
   output logic        [    AddrWidth-1:0] sram_c_addr_o,
-  input  logic signed [NumInputs-1:0][  InDataWidth-1:0] sram_a_rdata_i,
-  input  logic signed [NumInputs-1:0][  InDataWidth-1:0] sram_b_rdata_i,
-  output logic signed [ OutDataWidth-1:0] sram_c_wdata_o,
+  input  logic signed [RowsPerTile*NumInputs-1:0][  InDataWidth-1:0] sram_a_rdata_i, // Matrix A data 4x4 8 bit
+  input  logic signed [ColsPerTile*NumInputs-1:0][  InDataWidth-1:0] sram_b_rdata_i, // Matrix B data 4x4 8 bit
+  output wire signed [RowsPerTile*ColsPerTile-1:0][ OutDataWidth-1:0] sram_c_wdata_o,           // Matrix C data 4x4  32 bit
   output logic                            sram_c_we_o,
   output logic                            done_o
 );
@@ -82,7 +84,9 @@ module gemm_accelerator_top #(
   // Main GeMM controller
   gemm_controller #(
     .AddrWidth      ( SizeAddrWidth ),
-    .NumInputs      ( NumInputs     )
+    .NumInputs      ( NumInputs     ),
+    .RowsPerTile    ( RowsPerTile   ),
+    .ColsPerTile    ( ColsPerTile   )
   ) i_gemm_controller (
     .clk_i          ( clk_i       ),
     .rst_ni         ( rst_ni      ),
@@ -117,15 +121,21 @@ module gemm_accelerator_top #(
   // Input addresses for matrices A and B
   logic [AddrWidth-1:0] K_packed_depth;
   assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs;
-  assign sram_a_addr_o = (M_count * K_packed_depth + K_count);
-  assign sram_b_addr_o = (N_count * K_packed_depth + K_count);
+  logic [AddrWidth-1:0] N_packed_depth;
+  assign N_packed_depth = (N_size_i + ColsPerTile - 1) / ColsPerTile;
+  logic [AddrWidth-1:0] M_packed_depth;
+  assign M_packed_depth = (M_size_i + RowsPerTile - 1) / RowsPerTile;
+
+
+  assign sram_a_addr_o = (M_count* K_packed_depth + K_count);
+  assign sram_b_addr_o = (N_count* K_packed_depth + K_count);
 
   // Output address for matrix C
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       sram_c_addr_o <= '0;
     end else if (1'b1) begin  // Always valid in this simple design
-      sram_c_addr_o <= (M_count * N_size_i + N_count);
+      sram_c_addr_o <= (M_count * N_packed_depth + N_count);
     end
   end
 
@@ -143,10 +153,22 @@ module gemm_accelerator_top #(
   // Below is an example of a 2D generate-for loop to create a grid of PEs.
   //
   // ----------- BEGIN CODE EXAMPLE -----------
+
+  /*
+    for M = 0 to M'/4 -1             M_count = 0 to 0
+      for N = 0 to N'/4 -1           N_count = 0 to 3
+        for K = 0 to K'/NumInputs-1  K_count = 0 to 15
+          parfor m = 0 to 3
+          parfor n = 0 to 3
+          parfor k = 0 to NumInputs -1
+            MAC_PE_array[M*4 + m][N*4 + n] += A_matrix[M*4 + m][K*NumInputs + k] * B_matrix[K*NumInputs + k][N*4 + n]
+  */
+
+
   // genvar m, k, n;
   //
-  //   for (m = 0; m < M; m++) begin : gem_mac_pe_m
-  //     for (n = 0; n < N; n++) begin : gem_mac_pe_n
+  //   for (m = 0; m < 4; m++) begin : gem_mac_pe_m
+  //     for (n = 0; n < 4; n++) begin : gem_mac_pe_n
   //         mac_module #(
   //           < insert parameters >
   //         ) i_mac_pe (
@@ -169,20 +191,28 @@ module gemm_accelerator_top #(
   //---------------------------
 
   // The MAC PE instantiation and data path logics
-  general_mac_pe #(
-    .InDataWidth  ( InDataWidth            ),
-    .NumInputs    ( NumInputs              ),
-    .OutDataWidth ( OutDataWidth           )
-  ) i_mac_pe (
-    .clk_i        ( clk_i                  ),
-    .rst_ni       ( rst_ni                 ),
-    .a_i          ( sram_a_rdata_i         ),
-    .b_i          ( sram_b_rdata_i         ),
-    .a_valid_i    ( valid_data             ),
-    .b_valid_i    ( valid_data             ),
-    .init_save_i  ( sram_c_we_o || start_i ),
-    .acc_clr_i    ( !busy                  ),
-    .c_o          ( sram_c_wdata_o         )
-  );
+  genvar row,col;
+
+  for (row=0; row<RowsPerTile; row++) begin : gem_mac_pe_m
+    for (col=0; col<ColsPerTile; col++) begin : gem_mac_pe_n
+      // You can instantiate multiple MAC PEs here
+      general_mac_pe #(
+        .InDataWidth  ( InDataWidth            ),
+        .NumInputs    ( NumInputs              ),
+        .OutDataWidth ( OutDataWidth           )
+      ) i_mac_pe (
+        .clk_i        ( clk_i                  ),
+        .rst_ni       ( rst_ni                 ),
+        .a_i          ( signed'(sram_a_rdata_i[row*NumInputs +: NumInputs]) ),
+        .b_i          ( signed'(sram_b_rdata_i[col*NumInputs +: NumInputs]) ),
+        .a_valid_i    ( valid_data             ),
+        .b_valid_i    ( valid_data             ),
+        .init_save_i  ( sram_c_we_o || start_i ),
+        .acc_clr_i    ( !busy                  ),
+        .c_o          ( sram_c_wdata_o[row*ColsPerTile+col] )
+      );
+    end
+  end
+  
 
 endmodule

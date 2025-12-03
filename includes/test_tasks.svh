@@ -24,17 +24,19 @@ endtask
 
 // Task to verify the resulting matrix
 task automatic verify_result_c(
-  input logic signed [OutDataWidth-1:0] golden_data [DataDepth],
-  input logic signed [OutDataWidth-1:0] actual_data [DataDepth],
-  input logic        [   AddrWidth-1:0] num_data,
-  input logic                           fatal_on_mismatch
+  input logic signed [TileOutputDataWidth-1:0] golden_data [DataDepth],
+  input logic signed [TileOutputDataWidth-1:0] actual_data [DataDepth],
+  input logic        [          AddrWidth-1:0] num_data,
+  input logic                                  fatal_on_mismatch
 );
 begin
     // Compare with SRAM C contents
   for (int unsigned addr = 0; addr < num_data; addr++) begin
-  if (golden_data[addr] !== actual_data[addr]) begin
-    $display("ERROR: Mismatch at address %0d: expected %h, got %h",
-            addr, golden_data[addr], actual_data[addr]);
+    if (golden_data[addr] !== actual_data[addr]) begin
+    $display("ERROR: Mismatch at address %0d: expected %d, got %d",
+            addr, golden_data[addr][OutDataWidth-1:0], actual_data[addr][OutDataWidth-1:0]);
+    $display("ERROR: Mismatch at address %0d: expected %b, got %b",
+            addr, golden_data[addr][OutDataWidth-1:0], actual_data[addr][OutDataWidth-1:0]);
     if (fatal_on_mismatch)
     $fatal;
   end
