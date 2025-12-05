@@ -1,0 +1,7 @@
+rtl/gemm/general_mac_pe.sv
+rtl/common/ceiling_counter.sv
+rtl/gemm/gemm_444_controller.sv
+rtl/gemm/gemm_accelerator_444_top.sv
+
+rtl/common/single_port_memory.sv
+tb/tb_444_mac_gemm.sv

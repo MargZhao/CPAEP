@@ -32,7 +32,7 @@
 // - done_o       : Done signal indicating completion of the GeMM operation.
 //---------------------------
 
-module gemm_accelerator_top #(
+module gemm_accelerator_444_top #(
   parameter int unsigned NumInputs = 1,
   parameter int unsigned RowsPerTile = 4,
   parameter int unsigned ColsPerTile = 4,
@@ -82,7 +82,7 @@ module gemm_accelerator_top #(
   //---------------------------
 
   // Main GeMM controller
-  gemm_controller #(
+  gemm_444_controller #(
     .AddrWidth      ( SizeAddrWidth ),
     .NumInputs      ( NumInputs     ),
     .RowsPerTile    ( RowsPerTile   ),

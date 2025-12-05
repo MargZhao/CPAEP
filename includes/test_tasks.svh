@@ -23,7 +23,7 @@ end
 endtask
 
 // Task to verify the resulting matrix
-task automatic verify_result_c(
+task automatic verify_444_result_c(
   input logic signed [TileOutputDataWidth-1:0] golden_data [DataDepth],
   input logic signed [TileOutputDataWidth-1:0] actual_data [DataDepth],
   input logic        [          AddrWidth-1:0] num_data,

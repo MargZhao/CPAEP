@@ -29,7 +29,7 @@
 // - N_count_o    : Current count of N dimension.
 //---------------------------
 
-module gemm_controller #(
+module gemm_444_controller #(
   parameter int unsigned AddrWidth = 16,
   parameter int unsigned NumInputs = 1,
   parameter int unsigned RowsPerTile = 4,
