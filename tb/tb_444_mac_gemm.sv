@@ -24,17 +24,17 @@ module tb_444_mac_gemm;
   parameter int unsigned ColsPerTile  = 4;
   parameter int unsigned InDataWidth   = 8;
   parameter int unsigned OutDataWidth  = 32;
-  parameter int unsigned DataDepth     = 4096;
+  parameter int unsigned DataDepth     = 256;
   parameter int unsigned AddrWidth     = (DataDepth <= 1) ? 1 : $clog2(DataDepth);
-  parameter int unsigned SizeAddrWidth = 8;
+  parameter int unsigned SizeAddrWidth = 7; 
 
   // Test Parameters
-  parameter int unsigned MaxNum   = 32;
-  parameter int unsigned NumTests = 3;
+  parameter int unsigned MaxNum   = 64;
+  parameter int unsigned NumTests = 100;
 
-  parameter int unsigned SingleM = 4;
-  parameter int unsigned SingleK = 64;
-  parameter int unsigned SingleN = 16;
+  parameter int unsigned SingleM = 1;
+  parameter int unsigned SingleK = 1;
+  parameter int unsigned SingleN = 1;
 
   //---------------------------
   // Wires
@@ -184,7 +184,7 @@ module tb_444_mac_gemm;
   // Tasks and functions
   //---------------------------
   `include "includes/common_tasks.svh"
-  `include "includes/test_tasks.svh"
+  `include "includes/test_tasks_444.svh"
   `include "includes/test_func_444.svh"
 
   //---------------------------
@@ -233,18 +233,31 @@ module tb_444_mac_gemm;
     for (integer num_test = 0; num_test < NumTests; num_test++) begin
       $display("Test number: %0d", num_test);
 
-      if (num_test == 1) begin
+      if (num_test == 0) begin
+        M_i = 1;
+        K_i = 1;
+        N_i = 1;
+      end else if(num_test == 1) begin
+        M_i = 4;
+        K_i = 64;
+        N_i = 16;
+      end else if(num_test == 2) begin
         M_i = 16;
         K_i = 64;
         N_i = 4;
-      end else if(num_test == 2) begin
+      end else if(num_test == 3) begin
         M_i = 32;
         K_i = 32;
         N_i = 32;
+      end else if(num_test == 4) begin
+        M_i = 64;
+        K_i = 64;
+        N_i = 64;
       end else begin
-        M_i = SingleM;
-        K_i = SingleK;
-        N_i = SingleN;
+        // Randomize matrix sizes
+        M_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
+        K_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
+        N_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
       end
 
       $display("M: %0d, K: %0d, N: %0d", M_i, K_i, N_i);

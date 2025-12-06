@@ -31,6 +31,7 @@
 
 module gemm_444_controller #(
   parameter int unsigned AddrWidth = 16,
+  parameter int unsigned CountWidth = 8,
   parameter int unsigned NumInputs = 1,
   parameter int unsigned RowsPerTile = 4,
   parameter int unsigned ColsPerTile = 4
@@ -47,15 +48,15 @@ module gemm_444_controller #(
   input  logic [AddrWidth-1:0] K_size_i,
   input  logic [AddrWidth-1:0] N_size_i,
   // The the current M, K, and N counts
-  output logic [AddrWidth-1:0] M_count_o,
-  output logic [AddrWidth-1:0] K_count_o,
-  output logic [AddrWidth-1:0] N_count_o
+  output logic [CountWidth-1:0] M_count_o,
+  output logic [CountWidth-1:0] K_count_o,
+  output logic [CountWidth-1:0] N_count_o
 );
-  logic [AddrWidth-1:0] K_packed_depth;
+  logic [CountWidth-1:0] K_packed_depth;
   assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs; //16
-  logic [AddrWidth-1:0] N_packed_depth;
+  logic [CountWidth-1:0] N_packed_depth;
   assign N_packed_depth = (N_size_i + ColsPerTile - 1) / ColsPerTile; //4
-  logic [AddrWidth-1:0] M_packed_depth;
+  logic [CountWidth-1:0] M_packed_depth;
   assign M_packed_depth = (M_size_i + RowsPerTile - 1) / RowsPerTile; //1
 
   //-----------------------
@@ -118,7 +119,7 @@ module gemm_444_controller #(
 
   // K Counter
   ceiling_counter #(
-    .Width        (      AddrWidth ),
+    .Width        (      CountWidth ),
     .HasCeiling   (              1 )
   ) i_K_counter (
     .clk_i        ( clk_i          ),
@@ -132,7 +133,7 @@ module gemm_444_controller #(
 
   // N Counter
   ceiling_counter #(
-    .Width        (      AddrWidth ),
+    .Width        (      CountWidth ),
     .HasCeiling   (              1 )
   ) i_N_counter (
     .clk_i        ( clk_i          ),
@@ -146,7 +147,7 @@ module gemm_444_controller #(
 
   // M Counter
   ceiling_counter #(
-    .Width        (               AddrWidth ),
+    .Width        (              CountWidth ),
     .HasCeiling   (                       1 )
   ) i_M_counter (
     .clk_i        ( clk_i                   ),
@@ -203,22 +204,29 @@ module gemm_444_controller #(
       ControllerIdle: begin
         if (start_i) begin
           move_counter = input_valid_i;
-          next_state   = ControllerBusy;
+          if(last_counter_last_value) begin
+            // Special case: if only one tile to process
+            next_state = ControllerFinish;
+          end else begin
+            next_state = ControllerBusy;
+          end
         end
       end
 
       ControllerBusy: begin
         move_counter = input_valid_i;
         // Check if we are done
-        if (last_counter_last_value) begin
-          next_state = ControllerFinish;
-          end
-        else if (input_valid_i
+        if (input_valid_i
                      && K_count_o == '0 
                      && (M_count_o != '0 || N_count_o != '0)) begin
           // Check when result_valid_o should be asserted
           result_valid_o = 1'b1;
-        end
+          end 
+        
+        if (last_counter_last_value) begin
+          next_state = ControllerFinish;
+          end 
+
       end
 
       ControllerFinish: begin

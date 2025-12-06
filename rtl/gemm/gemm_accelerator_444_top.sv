@@ -39,7 +39,7 @@ module gemm_accelerator_444_top #(
   parameter int unsigned InDataWidth = 8,
   parameter int unsigned OutDataWidth = 32,
   parameter int unsigned AddrWidth = 16,
-  parameter int unsigned SizeAddrWidth = 8
+  parameter int unsigned SizeAddrWidth = 7
 ) (
   input  logic                            clk_i,
   input  logic                            rst_ni,
@@ -57,12 +57,13 @@ module gemm_accelerator_444_top #(
   output logic                            done_o
 );
 
+  localparam int unsigned CountWidth = SizeAddrWidth-2;
   //---------------------------
   // Wires
   //---------------------------
-  logic [SizeAddrWidth-1:0] M_count;
-  logic [SizeAddrWidth-1:0] K_count;
-  logic [SizeAddrWidth-1:0] N_count;
+  logic [CountWidth-1:0] M_count;
+  logic [CountWidth-1:0] K_count;
+  logic [CountWidth-1:0] N_count;
 
   logic busy;
   logic valid_data;
@@ -84,6 +85,7 @@ module gemm_accelerator_444_top #(
   // Main GeMM controller
   gemm_444_controller #(
     .AddrWidth      ( SizeAddrWidth ),
+    .CountWidth     ( CountWidth    ),
     .NumInputs      ( NumInputs     ),
     .RowsPerTile    ( RowsPerTile   ),
     .ColsPerTile    ( ColsPerTile   )
@@ -207,7 +209,7 @@ module gemm_accelerator_444_top #(
         .b_i          ( signed'(sram_b_rdata_i[col*NumInputs +: NumInputs]) ),
         .a_valid_i    ( valid_data             ),
         .b_valid_i    ( valid_data             ),
-        .init_save_i  ( sram_c_we_o || start_i ),
+        .init_save_i  ( start_i||sram_c_we_o   ),
         .acc_clr_i    ( !busy                  ),
         .c_o          ( sram_c_wdata_o[row*ColsPerTile+col] )
       );
