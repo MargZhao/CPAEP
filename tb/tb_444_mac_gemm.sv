@@ -24,9 +24,9 @@ module tb_444_mac_gemm;
   parameter int unsigned ColsPerTile  = 4;
   parameter int unsigned InDataWidth   = 8;
   parameter int unsigned OutDataWidth  = 32;
-  parameter int unsigned DataDepth     = 4096;
+  parameter int unsigned DataDepth     = 256;
   parameter int unsigned AddrWidth     = (DataDepth <= 1) ? 1 : $clog2(DataDepth);
-  parameter int unsigned SizeAddrWidth = 8;
+  parameter int unsigned SizeAddrWidth = 7; 
 
   // Test Parameters
   parameter int unsigned MaxNum   = 64;
@@ -245,10 +245,14 @@ module tb_444_mac_gemm;
         M_i = 16;
         K_i = 64;
         N_i = 4;
-       end else if(num_test == 3) begin
+      end else if(num_test == 3) begin
         M_i = 32;
         K_i = 32;
         N_i = 32;
+      end else if(num_test == 4) begin
+        M_i = 64;
+        K_i = 64;
+        N_i = 64;
       end else begin
         // Randomize matrix sizes
         M_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
@@ -324,9 +328,9 @@ module tb_444_mac_gemm;
               global_m = m_tile * RowsPerTile + row;
               global_k = k * NumInputs + i;
               if ((global_m < M_i) && (global_k < K_i)) begin
-                  //val = $urandom() % (2 ** InDataWidth);
+                  val = $urandom() % (2 ** InDataWidth);
                   //val = (global_m*64 + global_k) % (2 ** (InDataWidth-1));
-                  val = 1; // For easier debugging
+                  //val = 1; // For easier debugging
                  
                   temp_row_pack_data[row*NumInputs*InDataWidth + i*InDataWidth +: InDataWidth] = val;
               end
@@ -346,9 +350,9 @@ module tb_444_mac_gemm;
               global_n = n_tile * ColsPerTile + col;
               global_k = k * NumInputs + i;
               if ((global_n < N_i) && (global_k < K_i)) begin
-                  //val = $urandom() % (2 ** InDataWidth);
+                  val = $urandom() % (2 ** InDataWidth);
                   //val = (global_n*64 + global_k) % (2 ** (InDataWidth-1));
-                  val = 1; // For easier debugging
+                  //val = 1; // For easier debugging
                  
                   temp_col_pack_data[col*NumInputs*InDataWidth + i*InDataWidth +: InDataWidth] = val;
               end

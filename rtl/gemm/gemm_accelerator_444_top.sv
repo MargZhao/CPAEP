@@ -39,7 +39,7 @@ module gemm_accelerator_444_top #(
   parameter int unsigned InDataWidth = 8,
   parameter int unsigned OutDataWidth = 32,
   parameter int unsigned AddrWidth = 16,
-  parameter int unsigned SizeAddrWidth = 8
+  parameter int unsigned SizeAddrWidth = 7
 ) (
   input  logic                            clk_i,
   input  logic                            rst_ni,
@@ -57,12 +57,13 @@ module gemm_accelerator_444_top #(
   output logic                            done_o
 );
 
+  localparam int unsigned CountWidth = SizeAddrWidth-2;
   //---------------------------
   // Wires
   //---------------------------
-  logic [SizeAddrWidth-1:0] M_count;
-  logic [SizeAddrWidth-1:0] K_count;
-  logic [SizeAddrWidth-1:0] N_count;
+  logic [CountWidth-1:0] M_count;
+  logic [CountWidth-1:0] K_count;
+  logic [CountWidth-1:0] N_count;
 
   logic busy;
   logic valid_data;
@@ -84,6 +85,7 @@ module gemm_accelerator_444_top #(
   // Main GeMM controller
   gemm_444_controller #(
     .AddrWidth      ( SizeAddrWidth ),
+    .CountWidth     ( CountWidth    ),
     .NumInputs      ( NumInputs     ),
     .RowsPerTile    ( RowsPerTile   ),
     .ColsPerTile    ( ColsPerTile   )
