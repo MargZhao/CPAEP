@@ -29,12 +29,12 @@ module tb_444_mac_gemm;
   parameter int unsigned SizeAddrWidth = 8;
 
   // Test Parameters
-  parameter int unsigned MaxNum   = 32;
-  parameter int unsigned NumTests = 3;
+  parameter int unsigned MaxNum   = 64;
+  parameter int unsigned NumTests = 10;
 
-  parameter int unsigned SingleM = 4;
-  parameter int unsigned SingleK = 64;
-  parameter int unsigned SingleN = 16;
+  parameter int unsigned SingleM = 1;
+  parameter int unsigned SingleK = 1;
+  parameter int unsigned SingleN = 1;
 
   //---------------------------
   // Wires
@@ -233,18 +233,27 @@ module tb_444_mac_gemm;
     for (integer num_test = 0; num_test < NumTests; num_test++) begin
       $display("Test number: %0d", num_test);
 
-      if (num_test == 1) begin
-        M_i = 16;
-        K_i = 64;
+      if (num_test == 0) begin
+        M_i = 4;
+        K_i = 4;
         N_i = 4;
-      end else if(num_test == 2) begin
-        M_i = 32;
-        K_i = 32;
+      end else if(num_test == 1) begin
+        M_i = 4;
+        K_i = 5;
         N_i = 32;
+      end else if(num_test == 2) begin
+        M_i = 4;
+        K_i = 64;
+        N_i = 1;
+       end else if(num_test == 3) begin
+        M_i = 1;
+        K_i = 4;
+        N_i = 1;
       end else begin
-        M_i = SingleM;
-        K_i = SingleK;
-        N_i = SingleN;
+        // Randomize matrix sizes
+        M_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
+        K_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
+        N_i = ($urandom() % MaxNum) + 1; // Ensure non-zero size
       end
 
       $display("M: %0d, K: %0d, N: %0d", M_i, K_i, N_i);
@@ -315,9 +324,9 @@ module tb_444_mac_gemm;
               global_m = m_tile * RowsPerTile + row;
               global_k = k * NumInputs + i;
               if ((global_m < M_i) && (global_k < K_i)) begin
-                  val = $urandom() % (2 ** InDataWidth);
+                  //val = $urandom() % (2 ** InDataWidth);
                   //val = (global_m*64 + global_k) % (2 ** (InDataWidth-1));
-                  //val = 1; // For easier debugging
+                  val = global_k; // For easier debugging
                  
                   temp_row_pack_data[row*NumInputs*InDataWidth + i*InDataWidth +: InDataWidth] = val;
               end
@@ -337,9 +346,9 @@ module tb_444_mac_gemm;
               global_n = n_tile * ColsPerTile + col;
               global_k = k * NumInputs + i;
               if ((global_n < N_i) && (global_k < K_i)) begin
-                  val = $urandom() % (2 ** InDataWidth);
+                  //val = $urandom() % (2 ** InDataWidth);
                   //val = (global_n*64 + global_k) % (2 ** (InDataWidth-1));
-                  //val = 1; // For easier debugging
+                  val = global_k; // For easier debugging
                  
                   temp_col_pack_data[col*NumInputs*InDataWidth + i*InDataWidth +: InDataWidth] = val;
               end

@@ -203,7 +203,12 @@ module gemm_444_controller #(
       ControllerIdle: begin
         if (start_i) begin
           move_counter = input_valid_i;
-          next_state   = ControllerBusy;
+          if(last_counter_last_value) begin
+            // Special case: if only one tile to process
+            next_state = ControllerFinish;
+          end else begin
+            next_state   = ControllerBusy;
+          end
         end
       end
 

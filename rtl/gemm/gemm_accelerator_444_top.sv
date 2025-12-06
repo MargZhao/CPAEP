@@ -207,7 +207,7 @@ module gemm_accelerator_444_top #(
         .b_i          ( signed'(sram_b_rdata_i[col*NumInputs +: NumInputs]) ),
         .a_valid_i    ( valid_data             ),
         .b_valid_i    ( valid_data             ),
-        .init_save_i  ( sram_c_we_o || start_i ),
+        .init_save_i  ( start_i||sram_c_we_o   ),
         .acc_clr_i    ( !busy                  ),
         .c_o          ( sram_c_wdata_o[row*ColsPerTile+col] )
       );
