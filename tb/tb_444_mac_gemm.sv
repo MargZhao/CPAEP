@@ -1,4 +1,4 @@
-module tb_one_mac_gemm;
+module tb_444_mac_gemm;
   //---------------------------
   // Design Time Parameters
   //---------------------------
@@ -30,7 +30,7 @@ module tb_one_mac_gemm;
 
   // Test Parameters
   parameter int unsigned MaxNum   = 32;
-  parameter int unsigned NumTests = 1;
+  parameter int unsigned NumTests = 3;
 
   parameter int unsigned SingleM = 4;
   parameter int unsigned SingleK = 64;
@@ -155,7 +155,7 @@ module tb_one_mac_gemm;
   //---------------------------
   // DUT instantiation
   //---------------------------
-  gemm_accelerator_top #(
+  gemm_accelerator_444_top #(
     .NumInputs     ( NumInputs     ),
     .RowsPerTile   ( RowsPerTile   ),
     .ColsPerTile   ( ColsPerTile   ),
@@ -185,7 +185,7 @@ module tb_one_mac_gemm;
   //---------------------------
   `include "includes/common_tasks.svh"
   `include "includes/test_tasks.svh"
-  `include "includes/test_func.svh"
+  `include "includes/test_func_444.svh"
 
   //---------------------------
   // Test control
@@ -233,10 +233,14 @@ module tb_one_mac_gemm;
     for (integer num_test = 0; num_test < NumTests; num_test++) begin
       $display("Test number: %0d", num_test);
 
-      if (num_test > 1) begin
-        M_i = $urandom_range(1, MaxNum);
-        K_i = $urandom_range(1, MaxNum);
-        N_i = $urandom_range(1, MaxNum);
+      if (num_test == 1) begin
+        M_i = 16;
+        K_i = 64;
+        N_i = 4;
+      end else if(num_test == 2) begin
+        M_i = 32;
+        K_i = 32;
+        N_i = 32;
       end else begin
         M_i = SingleM;
         K_i = SingleK;
@@ -289,16 +293,35 @@ module tb_one_mac_gemm;
       // Matrix A (row major + Zero Padding)
       // ---------------------------------------------------------
 
-      for (integer m = 0; m < M_i; m++) begin
-        for (integer k = 0; k < K_i; k = k+NumInputs) begin
-          temp_pack_data = '0;
-          for (integer i = 0; i < NumInputs; i++) begin
-            if ((k + i) < K_i) begin
-              val = $urandom() % (2 ** 8);
-              // [7:0] 放 k+0, [15:8] 放 k+1 ...
-             temp_pack_data[i*InDataWidth +: InDataWidth] = val;
+      // for (integer m = 0; m < M_i; m++) begin
+      //   for (integer k = 0; k < K_i; k = k+NumInputs) begin
+      //     temp_pack_data = '0;
+      //     for (integer i = 0; i < NumInputs; i++) begin
+      //       if ((k + i) < K_i) begin
+      //         val = $urandom() % (2 ** 8);
+      //       end
+      //        // 位拼接：这里采用 Little Endian (低位放低索引)
+      //        // [7:0] 放 k+0, [15:8] 放 k+1 ...
+      //        temp_pack_data[i*InDataWidth +: InDataWidth] = val;
+      //     end
+      //     i_sram_a.memory[m*K_packed_depth+(k/NumInputs)] = temp_pack_data;
+      //   end
+      // end
+      for (integer m_tile=0; m_tile < M_packed_depth; m_tile++) begin
+        for (integer k = 0; k < K_packed_depth; k++) begin
+          temp_row_pack_data = '0;
+          for (integer row=0; row < RowsPerTile; row++) begin
+            for (integer i = 0; i < NumInputs; i++) begin
+              global_m = m_tile * RowsPerTile + row;
+              global_k = k * NumInputs + i;
+              if ((global_m < M_i) && (global_k < K_i)) begin
+                  val = $urandom() % (2 ** InDataWidth);
+                  //val = (global_m*64 + global_k) % (2 ** (InDataWidth-1));
+                  //val = 1; // For easier debugging
+                 
+                  temp_row_pack_data[row*NumInputs*InDataWidth + i*InDataWidth +: InDataWidth] = val;
+              end
             end
-             
           end
           i_sram_a.memory[m_tile * K_packed_depth + k] = temp_row_pack_data;
         end
@@ -332,7 +355,7 @@ module tb_one_mac_gemm;
       // end
 
       // Generate golden result
-      gemm_golden(M_i, K_i, N_i, i_sram_a.memory, i_sram_b.memory, G_memory);
+      gemm_444_golden(M_i, K_i, N_i, i_sram_a.memory, i_sram_b.memory, G_memory);
 
       // Just delay 1 cycle
       clk_delay(1);
@@ -343,7 +366,7 @@ module tb_one_mac_gemm;
       test_depth = M_packed_depth * N_packed_depth;
 
       // Verify the result
-      verify_result_c(G_memory, i_sram_c.memory, test_depth,
+      verify_444_result_c(G_memory, i_sram_c.memory, test_depth,
                       0 // Set this to 1 to make mismatches fatal
       );
 

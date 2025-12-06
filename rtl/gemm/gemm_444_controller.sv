@@ -29,9 +29,11 @@
 // - N_count_o    : Current count of N dimension.
 //---------------------------
 
-module gemm_controller #(
+module gemm_444_controller #(
   parameter int unsigned AddrWidth = 16,
-  parameter int unsigned NumInputs = 1
+  parameter int unsigned NumInputs = 1,
+  parameter int unsigned RowsPerTile = 4,
+  parameter int unsigned ColsPerTile = 4
 )(
   input  logic clk_i,
   input  logic rst_ni,
@@ -50,7 +52,11 @@ module gemm_controller #(
   output logic [AddrWidth-1:0] N_count_o
 );
   logic [AddrWidth-1:0] K_packed_depth;
-  assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs;
+  assign K_packed_depth = (K_size_i + NumInputs - 1) / NumInputs; //16
+  logic [AddrWidth-1:0] N_packed_depth;
+  assign N_packed_depth = (N_size_i + ColsPerTile - 1) / ColsPerTile; //4
+  logic [AddrWidth-1:0] M_packed_depth;
+  assign M_packed_depth = (M_size_i + RowsPerTile - 1) / RowsPerTile; //1
 
   //-----------------------
   // Wires and logic
@@ -133,7 +139,7 @@ module gemm_controller #(
     .rst_ni       ( rst_ni         ),
     .tick_i       ( move_N_counter ),
     .clear_i      ( clear_counters ),
-    .ceiling_i    ( N_size_i       ),
+    .ceiling_i    ( N_packed_depth ),
     .count_o      ( N_count_o      ),
     .last_value_o ( move_M_counter )
   );
@@ -147,7 +153,7 @@ module gemm_controller #(
     .rst_ni       ( rst_ni                  ),
     .tick_i       ( move_M_counter          ),
     .clear_i      ( clear_counters          ),
-    .ceiling_i    ( M_size_i                ),
+    .ceiling_i    ( M_packed_depth          ),
     .count_o      ( M_count_o               ),
     .last_value_o ( last_counter_last_value )
   );
@@ -206,7 +212,8 @@ module gemm_controller #(
         // Check if we are done
         if (last_counter_last_value) begin
           next_state = ControllerFinish;
-        end if (input_valid_i
+          end
+        else if (input_valid_i
                      && K_count_o == '0 
                      && (M_count_o != '0 || N_count_o != '0)) begin
           // Check when result_valid_o should be asserted
