@@ -1,4 +1,5 @@
 # CPAEP Project 
+- Arthur: Zijun Zhao, Ruichu Ao
 - This project template contains 3 structure: 4x4x4, 4x16 and 1x64, where the last number indicates the number of input to each PE(parfor K).
 - Our final design is 4x4x4, but feel free to play with the other 2 :)
 
@@ -17,7 +18,7 @@ To run with a GUI do:
 make TEST_MODULE=tb_444_mac_gemm questasim-run-gui
 ```
 
-You can modify the NumTests parameter in the tb to do more test.
+You can modify the NumTests parameter in the tb to do more test. You should see similar result like:
 
 ```bash
 Some long log of the previous tests.
