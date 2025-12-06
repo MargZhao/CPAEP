@@ -18,7 +18,7 @@ function automatic void gemm_444_golden(
  
  int global_m, global_n, global_k, i;
  longint signed acc;
- logic [TileOutputDataWidth-1:0] temp_output_tile;
+ logic signed [TileOutputDataWidth-1:0] temp_output_tile;
 
  for (integer m_tile = 0; m_tile < M_packed_depth; m_tile++) begin
   for (integer n_tile = 0; n_tile < N_packed_depth; n_tile++) begin
