@@ -1,23 +1,23 @@
-# CPAEP Project Template
-- This project template is for the CPAEP class for the AY 2025-2026 in KU Leuven
-- This template serves as a base repository for running RTL simulations.
-- Preferrably, setup your work in a linux subsystem with Questasim tool.
-- Please use the ESAT computers for this exercise.
+# CPAEP Project 
+- This project template contains 3 structure: 4x4x4, 4x16 and 1x64, where the last number indicates the number of input to each PE(parfor K).
+- Our final design is 4x4x4, but feel free to play with the other 2 :)
+
 
 # Quick Start
-We already prepared the entire Questasim simulation setup for you. Simply invoke the command below to run a simulation without GUI.
+The testbench of the 3 structure is tb_444_mac_gemm,  tb_mac_2D_gemm,  tb_one_mac_gemm. The corresponding top module and submodule can be find in \rtl folder
 
+To run the simulation, 
 ```bash
-make TEST_MODULE=tb_one_mac_gemm questasim-run
+make TEST_MODULE=tb_444_mac_gemm questasim-run
 ```
 
 To run with a GUI do:
 
 ```bash
-make TEST_MODULE=tb_one_mac_gemm questasim-run-gui
+make TEST_MODULE=tb_444_mac_gemm questasim-run-gui
 ```
 
-In either case, you should see a log that says:
+You can modify the NumTests parameter in the tb to do more test.
 
 ```bash
 Some long log of the previous tests.
